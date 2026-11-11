@@ -554,6 +554,13 @@ Page {
                                     removable: true
                                 }
                                 ListElement {
+                                    componentId: "zapret2"
+                                    component: "zapret2"
+                                    componentName: "Zapret2"
+                                    componentChecked: false
+                                    removable: true
+                                }
+                                ListElement {
                                     componentId: "byedpi"
                                     component: "byedpi"
                                     componentName: "ByeDPI"

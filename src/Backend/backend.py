@@ -22,7 +22,9 @@ from PySide6.QtQml import QQmlApplicationEngine
 
 from logger import AppLogger
 from utils import ProgressToast, background_sound, change_setting, change_settings, check_version, check_winpty, convert_bat_file, create_xml, delete_file, download_blacklist, error_sound, extract_zip, get_component_download_url, get_latest_release, get_download_url, download_update, get_release_info, move_settings_file, open_custom_blacklist, open_folder, pretty_path, register_component, remove_xml, start_process, stop_servise, unregister_component
-from zapret2_component import install_zapret2_archive
+from zapret2_component import (
+    install_zapret2_archive, parse_zapret2_arguments, validate_zapret2_files
+)
 from _data import BACKUP_SETTINGS_FILE_PATH, BLACKLIST_PROVIDERS, COMPONENTS_URLS, CONFIG_PATH, DEBUG_PATH, EXECUTABLES, LOG_LEVEL, PRESETS, PRESETS_DEFAULT, REPO_NAME, REPO_OWNER, SETTINGS_FILE_PATH, VERSION, Settings, UserConfig, settings, DEBUG, DIRECTORY, configs, text
 
 KEY = 'GOODBYEDPI'
@@ -152,6 +154,32 @@ class Backend(QObject):
     
     @Slot(str, str, result=bool)
     def load_preset(self, engine, path):
+        if engine == 'zapret2':
+            # Import JSON only. Never execute a user-supplied .cmd/.bat.
+            try:
+                if not path.lower().endswith('.json'):
+                    return False
+                with open(path, 'r', encoding='utf-8') as handle:
+                    imported = json.load(handle)
+                if not isinstance(imported, dict):
+                    return False
+                args = imported.get('custom_parameters', '')
+                parse_zapret2_arguments(args)
+                dest = Path(CONFIG_PATH, 'zapret2', 'imported')
+                dest.mkdir(parents=True, exist_ok=True)
+                clean_name = Path(path).name
+                saved = dest / clean_name
+                if os.path.normcase(os.path.abspath(path)) != os.path.normcase(os.path.abspath(saved)):
+                    with open(saved, 'w', encoding='utf-8') as handle:
+                        json.dump({'custom_parameters': args}, handle, ensure_ascii=False, indent=4)
+                change_setting('CONFIG', 'zapret2_config_path', str(saved))
+                configs['zapret2'].configfile = str(saved)
+                configs['zapret2'].reload_config()
+                return True
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                logger.create_error_log(traceback.format_exc())
+                return False
+
         self.last_preset_used = configs[engine].configfile
         self.last_load_folder = os.path.dirname(path)
         
@@ -567,6 +595,35 @@ class Backend(QObject):
         if _value != 'None': return _value
         else: return "" 
         
+    @Slot(str, result=str)
+    def validate_zapret2_args(self, arguments):
+        try:
+            parsed = parse_zapret2_arguments(arguments)
+            return f'OK: {len(parsed)} arguments'
+        except ValueError as ex:
+            return str(ex)
+
+    @Slot(result=str)
+    def zapret2_diagnostics(self):
+        import ctypes
+        root = Path(DIRECTORY, 'data', 'zapret2')
+        reports = [f'Folder: {root.resolve()}']
+        reports.append('Windows bundle: ' + ('OK' if validate_zapret2_files(root) else 'MISSING FILES'))
+        reports.append('Version: ' + settings.settings['COMPONENTS'].get('zapret2_version', 'unknown'))
+        reports.append('WinDivert DLL: ' + ('OK' if (root / 'WinDivert.dll').is_file() else 'MISSING'))
+        reports.append('Cygwin runtime: ' + ('OK' if (root / 'cygwin1.dll').is_file() else 'MISSING'))
+        try:
+            is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
+        except (AttributeError, OSError):
+            is_admin = False
+        reports.append('Administrator: ' + ('YES' if is_admin else 'NO'))
+        try:
+            count = len(parse_zapret2_arguments(configs['zapret2'].get_value('custom_parameters') or ''))
+            reports.append(f'Strategy: OK ({count} arguments)')
+        except ValueError as ex:
+            reports.append(f'Strategy: {ex}')
+        return '\n'.join(reports)
+
     @Slot(str, str, result=int)
     def get_int_from_config(self, config, key:str):
         _value = int(configs[config.lower()].get_value(key.lower()))

@@ -1,0 +1,23 @@
+name: Zapret2 checks
+on:
+  push:
+    branches:
+      - feature/zapret2
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  python-and-installer-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python syntax
+        run: python -m compileall -q src/Backend src/utils.py src/_data.py src/zapret2_component.py
+      - name: Offline installer tests
+        run: python -m unittest discover -s tests -p 'test_zapret2_component.py' -v
+      - name: Verify QML manifest
+        run: |
+          python -c "import pathlib,xml.etree.ElementTree as X; f=pathlib.Path('src'); root=X.parse(f/'resource.qrc').getroot(); assert all((f/n.text).exists() for n in root.iter('file'))"
