@@ -9,7 +9,8 @@ import zipfile
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from zapret2_component import (
     REQUIRED_FILES, convert_zapret2_batch, install_zapret2_archive,
-    parse_zapret2_arguments, validate_zapret2_files,
+    parse_zapret2_arguments, validate_blockcheck2_files,
+    validate_zapret2_files,
 )
 
 
@@ -21,6 +22,14 @@ def make_zip(path, complete=True):
             body = b"MZstub-binary" if name.endswith(".exe") else b"data"
             zf.writestr("zapret-win-bundle-commit/zapret-winws/" + name, body)
         zf.writestr("zapret-win-bundle-commit/zapret-winws/files/list-youtube.txt", b"upstream")
+        for item in (
+            "blockcheck/blockcheck2.cmd",
+            "blockcheck/zapret2/blog.sh",
+            "cygwin/bin/bash.exe",
+            "cygwin/bin/cygpath.exe",
+            "tools/elevator.exe",
+        ):
+            zf.writestr("zapret-win-bundle-commit/" + item, b"diagnostic")
 
 
 class Zapret2Tests(unittest.TestCase):
@@ -53,6 +62,7 @@ class Zapret2Tests(unittest.TestCase):
             dest = root / "zapret2"
             install_zapret2_archive(str(archive), str(dest))
             self.assertTrue(validate_zapret2_files(dest))
+            self.assertTrue(validate_blockcheck2_files(dest))
             custom = dest / "files/list-youtube.txt"
             custom.write_text("user-customized")
             install_zapret2_archive(str(archive), str(dest))

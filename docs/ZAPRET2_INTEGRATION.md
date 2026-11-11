@@ -17,7 +17,11 @@ without replacing classic Zapret.
   CMD/BAT examples are supported. Imported scripts are **never executed**.
   Arbitrary batch commands/variables are rejected. Complex custom CMD/BAT
   scripts may require manual conversion.
-- Blockcheck2 integration is a separate future step.
+- Official Blockcheck2 resources (blockcheck/, tools/, cygwin/) are also
+  extracted under `data/zapret2/bundle/`. The GUI runs only the verified
+  bundled `blockcheck2.cmd`, never an imported batch file, and checks for
+  conflicting DPI processes before launching diagnostics.
+- Automated parsing of Blockcheck2 results is a later enhancement.
 - This is a DEVELOPMENT branch. No verified Windows GUI build or live DPI tests yet.
 
 ## Testing

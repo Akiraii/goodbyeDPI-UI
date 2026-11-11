@@ -21,6 +21,14 @@ ALLOWED_ROOT_FILES = {
     "winws2.exe", "WinDivert.dll", "WinDivert64.sys", "cygwin1.dll",
 }
 ALLOWED_DIRECTORIES = {"lua", "files", "windivert.filter"}
+DIAGNOSTIC_BUNDLE_DIRECTORIES = {"blockcheck", "cygwin", "tools"}
+DIAGNOSTIC_REQUIRED = (
+    "bundle/blockcheck/blockcheck2.cmd",
+    "bundle/blockcheck/zapret2/blog.sh",
+    "bundle/cygwin/bin/bash.exe",
+    "bundle/cygwin/bin/cygpath.exe",
+    "bundle/tools/elevator.exe",
+)
 MAX_FILE_SIZE = 48 * 1024 * 1024
 MAX_EXTRACTED_SIZE = 192 * 1024 * 1024
 
@@ -36,6 +44,14 @@ def validate_zapret2_files(destination: str | os.PathLike) -> bool:
             return executable.read(2) == b"MZ"
     except OSError:
         return False
+
+
+def validate_blockcheck2_files(destination: str | os.PathLike) -> bool:
+    root = Path(destination)
+    return all(
+        (root.joinpath(*PurePosixPath(name).parts)).is_file()
+        for name in DIAGNOSTIC_REQUIRED
+    )
 
 
 def parse_zapret2_arguments(text: str) -> list[str]:
@@ -115,17 +131,25 @@ def install_zapret2_archive(archive: str, destination: str) -> None:
                 # Archive root is name-commit/; locate the nested official
                 # zapret-winws/ folder independent of archive SHA.
                 bits = PurePosixPath(member.filename.replace("\\", "/")).parts
-                if "zapret-winws" not in bits:
+                if "zapret-winws" in bits:
+                    pos = bits.index("zapret-winws")
+                    rel_parts = bits[pos + 1:]
+                    if not rel_parts:
+                        continue
+                    root = rel_parts[0]
+                    allowed = (
+                        (len(rel_parts) == 1 and root in ALLOWED_ROOT_FILES)
+                        or (len(rel_parts) > 1 and root in ALLOWED_DIRECTORIES)
+                    )
+                elif len(bits) >= 3 and bits[1] in DIAGNOSTIC_BUNDLE_DIRECTORIES:
+                    # Preserve the upstream relative layout:
+                    # bundle/blockcheck -> ../cygwin, ../tools.
+                    rel_parts = ("bundle",) + bits[1:]
+                    root = "bundle"
+                    allowed = True
+                else:
                     continue
-                pos = bits.index("zapret-winws")
-                rel_parts = bits[pos + 1:]
-                if not rel_parts or any(p in ("", ".", "..") for p in rel_parts):
-                    continue
-                root = rel_parts[0]
-                if not (
-                    (len(rel_parts) == 1 and root in ALLOWED_ROOT_FILES)
-                    or (len(rel_parts) > 1 and root in ALLOWED_DIRECTORIES)
-                ):
+                if not allowed or any(p in ("", ".", "..") for p in rel_parts):
                     continue
                 if member.file_size > MAX_FILE_SIZE:
                     raise ValueError("Oversized file in Zapret2 bundle")

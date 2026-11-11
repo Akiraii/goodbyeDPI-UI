@@ -216,6 +216,32 @@ Page {
                 placeholderText: tr2("Статус исполняемого файла, библиотек и стратегии.",
                                      "Binary, dependencies and strategy status.")
             }
+            Label {
+                text: "Blockcheck2"
+                font: Typography.bodyStrong
+            }
+            Label {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                text: tr2(
+                    "Перед диагностикой останови Zapret2 и все остальные DPI-программы. Откроется отдельное окно официального Blockcheck2.",
+                    "Stop Zapret2 and all other DPI tools before testing. Official Blockcheck2 opens in a separate window.")
+            }
+            Button {
+                text: tr2("Запустить Blockcheck2", "Run Blockcheck2")
+                enabled: page.installed && !page.busy
+                onClicked: {
+                    if (process.is_process_alive()) {
+                        page.actionMessage = tr2("Сначала останови DPI-движок.",
+                                                 "Stop the active DPI engine first.")
+                        return
+                    }
+                    var result = backend.run_zapret2_blockcheck()
+                    page.actionMessage = result === "True" ?
+                        tr2("Blockcheck2 запущен в отдельном окне.", "Blockcheck2 started in another window.") :
+                        result
+                }
+            }
             Button {
                 text: tr2("Исходники Windows-bundle", "Official Windows bundle")
                 onClicked: Qt.openUrlExternally("https://github.com/bol-van/zapret-win-bundle")

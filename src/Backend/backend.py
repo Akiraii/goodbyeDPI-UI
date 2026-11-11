@@ -24,7 +24,8 @@ from logger import AppLogger
 from utils import ProgressToast, background_sound, change_setting, change_settings, check_version, check_winpty, convert_bat_file, create_xml, delete_file, download_blacklist, error_sound, extract_zip, get_component_download_url, get_latest_release, get_download_url, download_update, get_release_info, move_settings_file, open_custom_blacklist, open_folder, pretty_path, register_component, remove_xml, start_process, stop_servise, unregister_component
 from zapret2_component import (
     convert_zapret2_batch, install_zapret2_archive,
-    parse_zapret2_arguments, validate_zapret2_files
+    parse_zapret2_arguments, validate_blockcheck2_files,
+    validate_zapret2_files
 )
 from _data import BACKUP_SETTINGS_FILE_PATH, BLACKLIST_PROVIDERS, COMPONENTS_URLS, CONFIG_PATH, DEBUG_PATH, EXECUTABLES, LOG_LEVEL, PRESETS, PRESETS_DEFAULT, REPO_NAME, REPO_OWNER, SETTINGS_FILE_PATH, VERSION, Settings, UserConfig, settings, DEBUG, DIRECTORY, configs, text
 
@@ -618,6 +619,7 @@ class Backend(QObject):
         reports.append('Version: ' + settings.settings['COMPONENTS'].get('zapret2_version', 'unknown'))
         reports.append('WinDivert DLL: ' + ('OK' if (root / 'WinDivert.dll').is_file() else 'MISSING'))
         reports.append('Cygwin runtime: ' + ('OK' if (root / 'cygwin1.dll').is_file() else 'MISSING'))
+        reports.append('Blockcheck2: ' + ('READY' if validate_blockcheck2_files(root) else 'NOT INSTALLED'))
         try:
             is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
         except (AttributeError, OSError):
@@ -629,6 +631,30 @@ class Backend(QObject):
         except ValueError as ex:
             reports.append(f'Strategy: {ex}')
         return '\n'.join(reports)
+
+    @Slot(result=str)
+    def run_zapret2_blockcheck(self):
+        """Run only the official installed blockcheck2.cmd, never an import."""
+        import psutil
+        root = Path(DIRECTORY, 'data', 'zapret2')
+        if not validate_blockcheck2_files(root):
+            return 'ERR_BLOCKCHECK2_FILES_MISSING'
+        try:
+            for running in psutil.process_iter(['name']):
+                if (running.info.get('name') or '').lower() in (
+                    'winws.exe', 'winws2.exe', 'goodbyedpi.exe', 'ciadpi.exe'
+                ):
+                    return 'ERR_DPI_PROCESS_RUNNING'
+            script = (root / 'bundle' / 'blockcheck' / 'blockcheck2.cmd').resolve()
+            subprocess.Popen(
+                ['cmd.exe', '/c', str(script)],
+                cwd=str(script.parent),
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+            )
+            return 'True'
+        except (OSError, psutil.Error) as ex:
+            logger.create_error_log(f'Blockcheck2 failed: {ex}')
+            return 'ERR_BLOCKCHECK2_START_FAILED'
 
     @Slot(str, str, result=int)
     def get_int_from_config(self, config, key:str):
