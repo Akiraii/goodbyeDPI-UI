@@ -19,7 +19,7 @@ jobs:
   build:
     name: Build portable Windows GUI
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -54,8 +54,14 @@ jobs:
       - name: Build executable (PyInstaller onedir)
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onedir --console --name goodbyeDPI --paths src --paths . --collect-all PySide6 --hidden-import=qasync --hidden-import=win32timezone --icon data/icon.ico src/main.py
+          # PyInstaller already has PySide6 hooks. --collect-all PySide6
+          # dragged in unused QtWebEngine / multimedia / tools and timed out.
+          # Keep the Qt runtime chosen by the actual imports and bundled QML.
+          python -m PyInstaller --noconfirm --clean --onedir --console --name goodbyeDPI --paths src --paths . --hidden-import=qasync --hidden-import=win32timezone --icon data/icon.ico --log-level INFO src/main.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exe = "dist/goodbyeDPI/goodbyeDPI.exe"
+          if (!(Test-Path $exe)) { throw "PyInstaller did not produce goodbyeDPI.exe" }
+          Write-Host "PyInstaller completed. Executable size:" (Get-Item $exe).Length
 
       - name: Package portable data and admin launcher
         shell: pwsh
