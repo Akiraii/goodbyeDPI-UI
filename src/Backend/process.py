@@ -25,7 +25,7 @@ def set_prefered_addr(engine, current_string, addr, port):
         if skip_next:
             skip_next = False
             continue
-        if token in ('--ip', '-i', '--port', '-p', '-addr'):
+        if token in ('--ip', '-i', '--port', '-p', '-addr', '-port', '-listen-addr', '-listen-port'):
             skip_next = True
             continue
         result.append(token)
@@ -130,7 +130,25 @@ def check_args(preset, engine=None):
         addr = settings.settings['PROXY']['proxy_addr']
         port = settings.settings['PROXY']['proxy_port']
         command = set_prefered_addr(engine, command, addr, port)
-        
+
+    if engine == 'spoofdpi':
+        # SpoofDPI v0.12.1+ renamed -addr/-port to -listen-addr/-listen-port.
+        # Keep v0.12.0 installations working with their original arguments.
+        installed_version = settings.settings['COMPONENTS'].get(
+            'spoofdpi_version', 'v0.12.0'
+        )
+        try:
+            parts = tuple(int(p) for p in installed_version.lstrip('v').split('.')[:3])
+        except (ValueError, TypeError):
+            parts = (0, 0, 0)
+        if parts >= (0, 12, 1):
+            renamed_flags = {
+                '-addr': '-listen-addr',
+                '-port': '-listen-port',
+                '--port': '-listen-port',
+            }
+            command = [renamed_flags.get(arg, arg) for arg in command]
+
     return command
     
 def get_preset_name(engine, presetId):

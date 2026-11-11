@@ -683,12 +683,33 @@ def get_component_download_url(component_name:str):
         if settings.get_value('CACHE', f'component_{component_name.lower()}_update_check_time') != datetime.now().strftime("%d.%m.%Y") or \
             not os.path.exists(f'{DIRECTORY}tempfiles/versiondata_{owner}_{repo}.json'):
             code = save_version_data_to_cache(owner, repo, object=f'component_{component_name.lower()}', 
-                                              url='releases')
+                                              url='releases?per_page=100' if component_name == 'spoofdpi' else 'releases')
             if code != True:
                 return code
         
         with open(f'{DIRECTORY}tempfiles/versiondata_{owner}_{repo}.json', 'r', encoding='utf-8') as file:
             response = json.load(file)
+
+        # Upstream SpoofDPI releases after v0.12.2 do not ship a Windows EXE.
+        # Search releases for the exact Windows executable expected by this UI.
+        if component_name == 'spoofdpi':
+            for release in response:
+                for asset in release.get('assets', []):
+                    if (asset.get('name') == SPOOFDPI_EXECUTABLE and
+                            asset.get('browser_download_url')):
+                        return f"{asset['browser_download_url']}|{release['tag_name']}"
+
+            # Old cached or paginated release lists may not include v0.12.2.
+            fallback = check_response(
+                'https://api.github.com/repos/xvzc/SpoofDPI/releases/tags/v0.12.2'
+            )
+            if fallback.status_code != 200:
+                return f'ERR_SERVER_STATUS_CODE_{fallback.status_code}'
+            for asset in fallback.json().get('assets', []):
+                if (asset.get('name') == SPOOFDPI_EXECUTABLE and
+                        asset.get('browser_download_url')):
+                    return f"{asset['browser_download_url']}|v0.12.2"
+            return 'ERR_INVALID_URL'
 
         latest_release = response[0]
         
