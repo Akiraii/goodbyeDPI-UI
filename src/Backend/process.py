@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+from zapret2_component import parse_zapret2_arguments, validate_zapret2_files
 import win32api
 import time
 import winreg
@@ -89,6 +90,16 @@ def build_command_from_config(engine_name, parameter_mapping, value_parameters):
 
 def check_args(preset, engine=None):
     engine = engine.lower() if engine else settings.settings['GLOBAL']['engine'].lower()
+    if engine == 'zapret2':
+        config_path = settings.settings['CONFIG'].get('zapret2_config_path', '')
+        if not config_path or not os.path.isfile(config_path):
+            config_path = os.path.join(CONFIG_PATH, 'zapret2', 'user.json')
+        configs['zapret2'].configfile = config_path
+        configs['zapret2'].reload_config()
+        # No shell is used. Preserve quoted Lua expressions as one argument.
+        return parse_zapret2_arguments(
+            configs['zapret2'].get_value('custom_parameters') or ''
+        )
     cfg = settings.settings['CONFIG'].get(f'{engine}_config_path', '')
     if cfg != "" and os.path.exists(cfg) and configs[engine].configfile != cfg:
         configs[engine].configfile = cfg
@@ -166,6 +177,8 @@ def get_preset_name(engine, presetId):
             additional = f" ({get_locale(_additional)})" 
             
         return f"{presetId}. "+ get_locale(f"preset_{presetId}") + additional
+    elif engine == 'zapret2':
+        return 'Zapret2 custom strategy'
     elif engine == 'zapret':
         if presetId == 3:
             _additional = "recommended"
@@ -181,6 +194,8 @@ def get_preset_name(engine, presetId):
         return f"{presetId}. "+ "("+get_locale(f"default") + ")"
     
 def get_engine_preset(engine:str):
+    if engine == 'zapret2':
+        return 'Zapret2 custom strategy'
     if engine == 'goodbyeDPI':
         advanced_mode_setting = settings.settings.getboolean('GLOBAL', 'use_advanced_mode')
     else:
@@ -435,9 +450,32 @@ class Process(QObject):
         self.preset_changed.emit()
         self.clean_output.emit()
         
-        if engine and not settings.settings['COMPONENTS'].getboolean(engine.lower()):
+        if not settings.settings['COMPONENTS'].getboolean(self.engine.lower(), fallback=False):
             self.handle_error('Component not installed correctly.')
             return False
+        if self.engine == 'zapret2':
+            import ctypes
+            import psutil
+            binary_dir = os.path.join(DIRECTORY, 'data', 'zapret2')
+            if not validate_zapret2_files(binary_dir):
+                self.handle_error('Zapret2 files missing: reinstall the component.')
+                return False
+            try:
+                is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
+            except (AttributeError, OSError):
+                is_admin = False
+            if not is_admin:
+                self.handle_error('Zapret2 requires administrator privileges.')
+                return False
+            try:
+                for other in psutil.process_iter(['name']):
+                    if (other.info.get('name') or '').lower() in ('winws.exe', 'winws2.exe'):
+                        self.handle_error(
+                            'Another winws/winws2 process is running. Stop it first.'
+                        )
+                        return False
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                pass
 
         self.output = ""
         is_can_start = True

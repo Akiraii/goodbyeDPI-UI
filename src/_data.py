@@ -63,6 +63,8 @@ GOODCHECK_PATH = DIRECTORY+'data/GoodCheck/'
 GOODBYE_DPI_EXECUTABLE = "goodbyedpi.exe" 
 ZAPRET_PATH = DIRECTORY+'data/zapret/'
 ZAPRET_EXECUTABLE = "winws.exe" 
+ZAPRET2_PATH = DIRECTORY+'data/zapret2/'
+ZAPRET2_EXECUTABLE = "winws2.exe"
 SPOOFDPI_PATH = DIRECTORY+'data/spoofdpi/'
 SPOOFDPI_EXECUTABLE = "spoofdpi-windows-amd64.exe" 
 BYEDPI_PATH = DIRECTORY+'data/byedpi/'
@@ -73,12 +75,14 @@ PROXIFYRE_EXECUTABLE = 'proxifyre.exe'
 DIRECTORIES = {
     'goodbyedpi':GOODBYE_DPI_PATH,
     'zapret':ZAPRET_PATH,
+    'zapret2':ZAPRET2_PATH,
     'byedpi':BYEDPI_PATH,
     'spoofdpi':SPOOFDPI_PATH,
 }
 EXECUTABLES = {
     'goodbyeDPI':GOODBYE_DPI_EXECUTABLE,
     'zapret':ZAPRET_EXECUTABLE,
+    'zapret2':ZAPRET2_EXECUTABLE,
     'spoofdpi':SPOOFDPI_EXECUTABLE,
     'byedpi': BYEDPI_EXECUTABLE,
     'proxifyre': PROXIFYRE_EXECUTABLE
@@ -86,6 +90,7 @@ EXECUTABLES = {
 COMPONENTS_URLS = {
     'goodbyeDPI':'ValdikSS/GoodbyeDPI',
     'zapret':'bol-van/zapret',
+    'zapret2':'bol-van/zapret-win-bundle',
     'spoofdpi':'xvzc/SpoofDPI',
     'byedpi':'hufrea/byedpi'
 }
@@ -170,10 +175,12 @@ S_VALUE_PARAMETERS = {
 PRESETS = {
     'goodbyedpi' : "preset_{i}",
     'zapret' : "qpreset_{i}",
+    'zapret2' : "qpreset_{i}",
 }
 PRESETS_DEFAULT = {
     'goodbyedpi' : 9,
     'zapret' : 3,
+    'zapret2' : 1,
 }
 
 REPO_OWNER = "Storik4pro"
@@ -210,6 +217,24 @@ class Settings:
         config = configparser.ConfigParser()
         config.optionxform = str
         config.read(self.settingsfile, encoding=self.encoding)
+        if os.path.normcase(os.path.abspath(self.settingsfile)) == os.path.normcase(os.path.abspath(SETTINGS_FILE_PATH)):
+            # Upgrade existing installed settings.ini without losing user preferences.
+            defaults = {
+                'CACHE': {'component_zapret2_update_check_time': '01.01.2000'},
+                'CONFIG': {'zapret2_config_path': ''},
+                'COMPONENTS': {
+                    'zapret2': 'False',
+                    'zapret2_version': 'not installed',
+                    'zapret2_server_version': 'unknown',
+                },
+                'ZAPRET2': {'use_advanced_mode': 'True', 'preset': '1'},
+            }
+            for section, entries in defaults.items():
+                if not config.has_section(section):
+                    config.add_section(section)
+                for key, value in entries.items():
+                    if not config.has_option(section, key):
+                        config.set(section, key, value)
         self.settings = config
         return self.settings
 try:    
@@ -268,7 +293,7 @@ class UserConfig:
         self.write_config()
 
 try:
-    components = ['goodbyedpi', 'zapret', 'byedpi', 'spoofdpi']
+    components = ['goodbyedpi', 'zapret', 'byedpi', 'spoofdpi', 'zapret2']
 
     for component in components:
         src = os.path.join('_internal', 'data', 'settings', 'presets', component, 'user.json')
@@ -281,13 +306,21 @@ try:
 
         os.makedirs(dst_dir, exist_ok=True)
 
-        shutil.copyfile(src, dst)
-        logger.create_info_log(f"Copied {src} to {dst}")
+        # Existing user presets must survive application restarts.
+        if component != 'zapret2' or not os.path.exists(dst):
+            shutil.copyfile(src, dst)
+            logger.create_info_log(f"Copied {src} to {dst}")
     
     goodbyedpi_config_path = os.path.join(settings.settings['CONFIG']['goodbyedpi_config_path'])
     zapret_config_path = os.path.join(settings.settings['CONFIG']['zapret_config_path'])
     byedpi_config_path = os.path.join(settings.settings['CONFIG']['byedpi_config_path'])
     spoofdpi_config_path = os.path.join(settings.settings['CONFIG']['spoofdpi_config_path'])
+    zapret2_config_path = os.path.join(settings.settings['CONFIG']['zapret2_config_path'])
+    zapret2_default = os.path.join(CONFIG_PATH, 'zapret2', 'user.json')
+    if not os.path.isfile(zapret2_default):
+        os.makedirs(os.path.dirname(zapret2_default), exist_ok=True)
+        with open(zapret2_default, 'w', encoding='utf-8') as file:
+            json.dump({'custom_parameters': ''}, file, ensure_ascii=False, indent=4)
     
     configs = {
         'goodbyedpi':UserConfig(CONFIG_PATH+"/goodbyedpi/user.json" if\
@@ -296,6 +329,9 @@ try:
         'zapret':UserConfig(CONFIG_PATH+"/zapret/user.json" if\
                             zapret_config_path == "" or not os.path.exists(zapret_config_path) else\
                             zapret_config_path),
+        'zapret2':UserConfig(zapret2_default if\
+                            zapret2_config_path == "" or not os.path.exists(zapret2_config_path) else\
+                            zapret2_config_path),
         'byedpi':UserConfig(CONFIG_PATH+"/byedpi/user.json" if\
                             byedpi_config_path == "" or not os.path.exists(byedpi_config_path) else\
                             byedpi_config_path),

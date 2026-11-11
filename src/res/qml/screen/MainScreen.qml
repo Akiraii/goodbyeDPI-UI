@@ -58,6 +58,7 @@ Item{
             "/personalize": resolvedUrl("res/qml/page/T_Personalize.qml"),
             "/goodbyedpi": resolvedUrl("res/qml/page/T_Goodbyedpi.qml"),
             "/zapret": resolvedUrl("res/qml/page/T_Zapret.qml"),
+            "/zapret2": resolvedUrl("res/qml/page/T_Zapret2.qml"),
             "/spoofdpi": resolvedUrl("res/qml/page/T_Spoofdpi.qml"),
             "/byedpi": resolvedUrl("res/qml/page/T_Byedpi.qml"),
             "/update": resolvedUrl("res/qml/page/T_Update.qml"),

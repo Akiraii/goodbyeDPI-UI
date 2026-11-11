@@ -34,6 +34,7 @@ from toasted import Button, Image, Progress, Text, Toast, ToastButtonStyle, Toas
 import winsound
 
 import requests
+from zapret2_component import install_zapret2_archive, validate_zapret2_files
 from _data import GOODBYE_DPI_EXECUTABLE, GOODCHECK_PATH, PARAMETER_MAPPING, PROXIFYRE_FILES_LIST, S_PARAMETER_MAPPING, S_VALUE_PARAMETERS, VALUE_PARAMETERS, ZAPRET_EXECUTABLE, ZAPRET_PATH, \
     GOODBYE_DPI_PATH, DEBUG, DIRECTORY, DEBUG_PATH, REPO_NAME, REPO_OWNER, CONFIGS_REPO_NAME, SETTINGS_FILE_PATH,\
     CONFIG_PATH, SPOOFDPI_EXECUTABLE, BYEDPI_EXECUTABLE, EXECUTABLES, COMPONENTS_URLS, REQUEST_HEADER, text, settings
@@ -386,6 +387,22 @@ class GoodbyedpiProcess(QObject):
 
     @Slot()
     def stop_goodbyedpi(self):
+        if self.engine == 'zapret2':
+            # Stop only the winws2 process owned by this UI instance.
+            # Do not enumerate/terminate every matching process on the OS.
+            if self.worker is not None:
+                if self.worker.proc is not None:
+                    try:
+                        if self.worker.proc.poll() is None:
+                            self.worker.proc.terminate()
+                    except (OSError, psutil.Error):
+                        pass
+                if self.worker.isRunning():
+                    self.worker.stop()
+            self.error = False
+            self.stop = True
+            self.process_stopped.emit(self.reason)
+            return True
         if not winpty_support:
             for proc in psutil.process_iter(['pid', 'name']):
                 if proc.info['name'] == EXECUTABLES[self.engine]:
@@ -675,6 +692,25 @@ def download_update(
         shutil.copyfile(url, directory)
 
 def get_component_download_url(component_name:str):
+    if component_name == 'zapret2':
+        # Pin the Windows bundle archive to a specific commit so the
+        # installed version and the downloaded contents cannot drift.
+        try:
+            response = check_response(
+                'https://api.github.com/repos/bol-van/zapret-win-bundle/commits/master'
+            )
+            if response.status_code != 200:
+                return f'ERR_SERVER_STATUS_CODE_{response.status_code}'
+            sha = response.json().get('sha', '')
+            if not re.fullmatch(r'[0-9a-f]{40}', sha):
+                return 'ERR_INVALID_SERVER_RESPONSE'
+            return (
+                f'https://github.com/bol-van/zapret-win-bundle/archive/{sha}.zip'
+                f'|bundle-{sha[:12]}'
+            )
+        except Exception:
+            return 'ERR_UNKNOWN'
+
     component_addres = COMPONENTS_URLS[component_name]
     repo = component_addres.split("/")[1]
     owner = component_addres.split("/")[0]
@@ -881,6 +917,19 @@ def open_folder(folder_path):
     os.startfile(folder_path)
 
 def register_component(component_name:str, version):
+    if component_name == 'zapret2':
+        component_directory = os.path.join(
+            'E:/_component' if DEBUG else DIRECTORY, 'data', 'zapret2'
+        )
+        if not validate_zapret2_files(component_directory):
+            return 'ERR_COMPONENT_FILES_MISSING'
+        change_settings('COMPONENTS', [
+            ['zapret2', 'True'],
+            ['zapret2_version', version],
+            ['zapret2_server_version', version],
+        ])
+        return
+
     component_directory = DIRECTORY+f"data/{component_name}" if not DEBUG else f"E:/_component/{component_name}"
     result = download_files_from_github(
         remote_dir=f"{component_name.lower()}/", 
@@ -1055,6 +1104,7 @@ def get_parameter_mappings(engine_name):
     parameter_mappings = {
         'goodbyedpi': (PARAMETER_MAPPING, VALUE_PARAMETERS),
         'zapret': (None, None),
+        'zapret2': (None, None),
         'byedpi': (None, None),
         'spoofdpi': (S_PARAMETER_MAPPING, S_VALUE_PARAMETERS),
     }
