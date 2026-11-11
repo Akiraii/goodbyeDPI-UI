@@ -1,0 +1,83 @@
+name: Zapret2 experimental Windows GUI build
+
+on:
+  push:
+    branches:
+      - feature/zapret2
+    paths:
+      - 'src/**'
+      - 'data/settings/**'
+      - 'requirements.txt'
+      - 'update-resource.py'
+      - '.github/workflows/zapret2-windows-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build portable Windows GUI
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install build and application dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install "PyInstaller>=6.12,<7"
+
+      - name: Prepare application metadata and compile QML
+        shell: pwsh
+        run: |
+          @'
+          application_id = "goodbyedpi-ui.zapret2.preview"
+          application_name = "GoodbyeDPI-UI Zapret2 Preview"
+          application_company = "GoodbyeDPI-UI community fork"
+          application_copyright = "Community fork"
+          application_domain = "github.com/Akiraii/goodbyeDPI-UI"
+          application_version = "1.2.14-zapret2-preview"
+          build_name = "goodbyeDPI"
+          build_hotreload = "OFF"
+          build_project_path = ""
+          '@ | Set-Content -Path "src/GlobalConfig.py" -Encoding UTF8
+          python update-resource.py
+
+      - name: Build executable (PyInstaller onedir)
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onedir --console --name goodbyeDPI --paths src --paths . --collect-all PySide6 --hidden-import=qasync --hidden-import=win32timezone --icon data/icon.ico src/main.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package portable data and admin launcher
+        shell: pwsh
+        run: |
+          $out = "dist/goodbyeDPI"
+          Copy-Item -Path "data" -Destination "$out/data" -Recurse -Force
+          @'
+          @echo off
+          cd /d "%~dp0"
+          powershell.exe -NoProfile -Command "Start-Process -FilePath '.\\goodbyeDPI.exe' -WorkingDirectory '.' -Verb RunAs"
+          '@ | Set-Content -Path "$out/Start-as-administrator.cmd" -Encoding Ascii
+          if (!(Test-Path "$out/goodbyeDPI.exe")) { throw "Missing app executable" }
+          if (!(Test-Path "$out/data/settings/presets/zapret2/user.json")) { throw "Missing Zapret2 preset" }
+          if (!(Test-Path "$out/data/settings/settings.ini")) { throw "Missing settings" }
+          Write-Host "GUI executable and Zapret2 data are packaged."
+          Compress-Archive -Path "$out/*" -DestinationPath "GoodbyeDPI-UI-Zapret2-Windows-PREVIEW.zip" -Force
+          Get-Item "GoodbyeDPI-UI-Zapret2-Windows-PREVIEW.zip" | Select-Object Name,Length
+
+      - name: Upload portable Windows preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoodbyeDPI-UI-Zapret2-Windows-PREVIEW
+          path: GoodbyeDPI-UI-Zapret2-Windows-PREVIEW.zip
+          retention-days: 14
+          if-no-files-found: error

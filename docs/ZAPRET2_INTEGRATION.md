@@ -48,3 +48,15 @@ Ubuntu and verifies that the new Zapret2 QML files are in the resource manifest.
 6. Ensure user-modified host lists and other engines' configs are preserved.
 
 Official upstream: https://github.com/bol-van/zapret-win-bundle
+
+## Portable Windows preview
+
+The Windows build workflow creates an **experimental** PyInstaller onedir GUI
+ZIP on a Windows runner and attaches it as an Actions artifact. It recompiles
+QML resources first, packages the default data directory and supplies the
+Start-as-administrator.cmd launcher. This is a developer preview,
+not an upstream-endorsed release.
+
+The GUI ZIP intentionally does not ship a downloaded Zapret2 EXE. Use the
+Zapret2 page to download the official Windows bundle by upstream commit SHA.
+Do not merge into main until manual Windows GUI, WinDivert and strategy tests.
