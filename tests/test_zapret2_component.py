@@ -55,13 +55,12 @@ class Zapret2Tests(unittest.TestCase):
             install_zapret2_archive(str(archive), str(dest))
             prev = (dest / "winws2.exe").read_bytes()
             make_zip(archive, complete=False)
-            # During an update, an omitted file must not silently be
-            # accepted just because it exists in the previous installation.
-            # A fresh install must reject incomplete archives.
-            new_dest = root / "zapret2-fresh"
+            # An incomplete update must be rejected even when older files
+            # are present in the existing installation.
             with self.assertRaises(ValueError):
-                install_zapret2_archive(str(archive), str(new_dest))
+                install_zapret2_archive(str(archive), str(dest))
             self.assertEqual((dest / "winws2.exe").read_bytes(), prev)
+            self.assertTrue(validate_zapret2_files(dest))
 
 
 if __name__ == "__main__":

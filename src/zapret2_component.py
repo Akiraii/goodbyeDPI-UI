@@ -116,6 +116,10 @@ def install_zapret2_archive(archive: str, destination: str) -> None:
                 with zf.open(member) as source, target.open("wb") as sink:
                     shutil.copyfileobj(source, sink)
 
+        # Every required file must be present in THIS archive, not inherited
+        # from the previous installation copied into the staging folder.
+        if not set(REQUIRED_FILES).issubset(extracted):
+            raise ValueError("Official Windows bundle is incomplete")
         if not validate_zapret2_files(staging):
             raise ValueError("Official Windows bundle is incomplete")
         if backup.exists():

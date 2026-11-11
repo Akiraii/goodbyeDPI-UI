@@ -306,8 +306,10 @@ try:
 
         os.makedirs(dst_dir, exist_ok=True)
 
-        shutil.copyfile(src, dst)
-        logger.create_info_log(f"Copied {src} to {dst}")
+        # Existing user presets must survive application restarts.
+        if component != 'zapret2' or not os.path.exists(dst):
+            shutil.copyfile(src, dst)
+            logger.create_info_log(f"Copied {src} to {dst}")
     
     goodbyedpi_config_path = os.path.join(settings.settings['CONFIG']['goodbyedpi_config_path'])
     zapret_config_path = os.path.join(settings.settings['CONFIG']['zapret_config_path'])

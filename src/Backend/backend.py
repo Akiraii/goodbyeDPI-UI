@@ -1189,8 +1189,13 @@ class DownloadComponent(QObject):
                     'E:/_component' if DEBUG else settings.settings['GLOBAL']['work_directory'],
                     'data', 'zapret2'
                 )
-                install_zapret2_archive(directory, target)
-                delete_file(directory)
+                try:
+                    install_zapret2_archive(directory, target)
+                except (ValueError, OSError) as ex:
+                    logger.create_error_log(f'Zapret2 installation failed: {ex}')
+                    return 'ERR_ZAPRET2_INVALID_ARCHIVE'
+                finally:
+                    delete_file(directory)
                 result = register_component('zapret2', version)
                 if result: return result
                 return 'True'
