@@ -22,6 +22,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 
 from logger import AppLogger
 from utils import ProgressToast, background_sound, change_setting, change_settings, check_version, check_winpty, convert_bat_file, create_xml, delete_file, download_blacklist, error_sound, extract_zip, get_component_download_url, get_latest_release, get_download_url, download_update, get_release_info, move_settings_file, open_custom_blacklist, open_folder, pretty_path, register_component, remove_xml, start_process, stop_servise, unregister_component
+from zapret2_component import install_zapret2_archive
 from _data import BACKUP_SETTINGS_FILE_PATH, BLACKLIST_PROVIDERS, COMPONENTS_URLS, CONFIG_PATH, DEBUG_PATH, EXECUTABLES, LOG_LEVEL, PRESETS, PRESETS_DEFAULT, REPO_NAME, REPO_OWNER, SETTINGS_FILE_PATH, VERSION, Settings, UserConfig, settings, DEBUG, DIRECTORY, configs, text
 
 KEY = 'GOODBYEDPI'
@@ -81,6 +82,11 @@ class Backend(QObject):
             {
                 'key': '/zapret',
                 'title': 'Zapret',
+                '_icon': f"qrc:/qt/qml/{PATH}/res/image/zapret.png",
+            },
+            {
+                'key': '/zapret2',
+                'title': 'Zapret2',
                 '_icon': f"qrc:/qt/qml/{PATH}/res/image/zapret.png",
             },
             {
@@ -1108,6 +1114,11 @@ class DownloadComponent(QObject):
         filename = 'unknown_component.zip' if url.endswith(".zip") else\
                    EXECUTABLES[self.component_name]
         _dir = 'E:/_component/' if DEBUG else settings.settings['GLOBAL']['work_directory']+f'data/{self.component_name}'
+        if self.component_name == 'zapret2':
+            _dir = os.path.join(
+                'E:/_component' if DEBUG else settings.settings['GLOBAL']['work_directory'],
+                'tempfiles', 'zapret2'
+            )
         if not os.path.exists(_dir):
             os.makedirs(_dir)
         directory = os.path.join(_dir, filename)
@@ -1116,6 +1127,16 @@ class DownloadComponent(QObject):
         
         try:
             download_update(url, directory)
+            if self.component_name == 'zapret2':
+                target = os.path.join(
+                    'E:/_component' if DEBUG else settings.settings['GLOBAL']['work_directory'],
+                    'data', 'zapret2'
+                )
+                install_zapret2_archive(directory, target)
+                delete_file(directory)
+                result = register_component('zapret2', version)
+                if result: return result
+                return 'True'
             if filename.endswith(".zip"):
                 if not DEBUG: stop_servise()
                 skipfiles = [
