@@ -387,6 +387,22 @@ class GoodbyedpiProcess(QObject):
 
     @Slot()
     def stop_goodbyedpi(self):
+        if self.engine == 'zapret2':
+            # Stop only the winws2 process owned by this UI instance.
+            # Do not enumerate/terminate every matching process on the OS.
+            if self.worker is not None:
+                if self.worker.proc is not None:
+                    try:
+                        if self.worker.proc.poll() is None:
+                            self.worker.proc.terminate()
+                    except (OSError, psutil.Error):
+                        pass
+                if self.worker.isRunning():
+                    self.worker.stop()
+            self.error = False
+            self.stop = True
+            self.process_stopped.emit(self.reason)
+            return True
         if not winpty_support:
             for proc in psutil.process_iter(['pid', 'name']):
                 if proc.info['name'] == EXECUTABLES[self.engine]:

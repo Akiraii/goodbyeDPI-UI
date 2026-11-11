@@ -640,7 +640,11 @@ class Backend(QObject):
         if not validate_blockcheck2_files(root):
             return 'ERR_BLOCKCHECK2_FILES_MISSING'
         try:
-            for running in psutil.process_iter(['name']):
+            for running in psutil.process_iter(['pid', 'name']):
+                # The packaged GUI itself is goodbyeDPI.exe; exclude only
+                # our own PID, never all processes sharing that filename.
+                if running.info.get('pid') == os.getpid():
+                    continue
                 if (running.info.get('name') or '').lower() in (
                     'winws.exe', 'winws2.exe', 'goodbyedpi.exe', 'ciadpi.exe'
                 ):
