@@ -29,6 +29,15 @@ without replacing classic Zapret.
 Run `python -m unittest discover -s tests -p 'test_zapret2_component.py' -v`.
 The same checks are configured as a GitHub Actions workflow on this branch.
 
+The Windows CI job additionally downloads the real upstream Windows bundle by
+commit SHA, checks installation and Blockcheck2 resources, converts the upstream
+CMD sample and executes `winws2.exe --help` without packet interception.
+
+Before launching or packaging the GUI, run `python update-resource.py` to
+regenerate the compiled Qt resources. `run.py` calls this automatically unless
+started with `--fast`. The workflow compiles QML resources for Windows and
+Ubuntu and verifies that the new Zapret2 QML files are in the resource manifest.
+
 ## Windows test checklist
 
 1. Launch GoodbyeDPI-UI as administrator on a clean Windows 10/11 x64 VM.

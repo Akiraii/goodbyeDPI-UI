@@ -177,6 +177,7 @@ try:
                     'spoofdpi': SPOOFDPI_EXECUTABLE,
                     'byedpi': BYEDPI_EXECUTABLE,
                     'zapret':ZAPRET_EXECUTABLE,
+                    'zapret2': 'winws2.exe',
                 }
                 hot_debugger.log("Check components...")
                 for component, executable in components_to_check.items():
