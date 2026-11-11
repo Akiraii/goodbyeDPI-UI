@@ -56,6 +56,41 @@ def parse_zapret2_arguments(text: str) -> list[str]:
     return args
 
 
+def convert_zapret2_batch(text: str) -> str:
+    """Import a simple official winws2.cmd launch command WITHOUT executing it.
+
+    Only the winws2 argument line and its caret-continued lines are read.
+    Arbitrary batch commands and environment variables are not interpreted.
+    """
+    if not isinstance(text, str) or len(text) > 262144:
+        raise ValueError("Invalid batch file")
+    collected = []
+    found = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not found:
+            matched = re.search(r'winws2\.exe["\x27]?', line, flags=re.IGNORECASE)
+            if not matched:
+                continue
+            found = True
+            line = line[matched.end():].strip()
+        more = line.endswith('^')
+        if more:
+            line = line[:-1].rstrip()
+        if line:
+            collected.append(line)
+        if not more:
+            break
+    if not found or not collected:
+        raise ValueError("Could not find a winws2.exe launch command")
+    # Standard bundle CMD examples use the directory of the script.
+    arguments = ' '.join(collected).replace('%~dp0', '').replace('\\', '/')
+    if '%' in arguments:
+        raise ValueError("Batch environment variables are not supported")
+    parsed = parse_zapret2_arguments(arguments)
+    return shlex.join(parsed)
+
+
 def install_zapret2_archive(archive: str, destination: str) -> None:
     """Stage and validate selected Windows bundle files before replacing engine.
 

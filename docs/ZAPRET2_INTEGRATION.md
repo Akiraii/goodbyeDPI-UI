@@ -13,8 +13,11 @@ without replacing classic Zapret.
   updates and retains the previous files at `data/.zapret2-previous/`.
 - The user's default strategy is `data/settings/presets/zapret2/user.json`.
   Use forward slashes in resource paths within custom arguments.
-- Import/export currently supports JSON only. Batch scripts are deliberately
-  **not executed**; CMD/BAT conversion and Blockcheck2 integration are future steps.
+- JSON import/export and the standard single-command, caret-continued
+  CMD/BAT examples are supported. Imported scripts are **never executed**.
+  Arbitrary batch commands/variables are rejected. Complex custom CMD/BAT
+  scripts may require manual conversion.
+- Blockcheck2 integration is a separate future step.
 - This is a DEVELOPMENT branch. No verified Windows GUI build or live DPI tests yet.
 
 ## Testing

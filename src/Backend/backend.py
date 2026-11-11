@@ -23,7 +23,8 @@ from PySide6.QtQml import QQmlApplicationEngine
 from logger import AppLogger
 from utils import ProgressToast, background_sound, change_setting, change_settings, check_version, check_winpty, convert_bat_file, create_xml, delete_file, download_blacklist, error_sound, extract_zip, get_component_download_url, get_latest_release, get_download_url, download_update, get_release_info, move_settings_file, open_custom_blacklist, open_folder, pretty_path, register_component, remove_xml, start_process, stop_servise, unregister_component
 from zapret2_component import (
-    install_zapret2_archive, parse_zapret2_arguments, validate_zapret2_files
+    convert_zapret2_batch, install_zapret2_archive,
+    parse_zapret2_arguments, validate_zapret2_files
 )
 from _data import BACKUP_SETTINGS_FILE_PATH, BLACKLIST_PROVIDERS, COMPONENTS_URLS, CONFIG_PATH, DEBUG_PATH, EXECUTABLES, LOG_LEVEL, PRESETS, PRESETS_DEFAULT, REPO_NAME, REPO_OWNER, SETTINGS_FILE_PATH, VERSION, Settings, UserConfig, settings, DEBUG, DIRECTORY, configs, text
 
@@ -157,17 +158,22 @@ class Backend(QObject):
         if engine == 'zapret2':
             # Import JSON only. Never execute a user-supplied .cmd/.bat.
             try:
-                if not path.lower().endswith('.json'):
+                extension = Path(path).suffix.lower()
+                if extension in ('.bat', '.cmd'):
+                    with open(path, 'r', encoding='utf-8-sig') as handle:
+                        args = convert_zapret2_batch(handle.read())
+                elif extension == '.json':
+                    with open(path, 'r', encoding='utf-8') as handle:
+                        imported = json.load(handle)
+                    if not isinstance(imported, dict):
+                        return False
+                    args = imported.get('custom_parameters', '')
+                else:
                     return False
-                with open(path, 'r', encoding='utf-8') as handle:
-                    imported = json.load(handle)
-                if not isinstance(imported, dict):
-                    return False
-                args = imported.get('custom_parameters', '')
                 parse_zapret2_arguments(args)
                 dest = Path(CONFIG_PATH, 'zapret2', 'imported')
                 dest.mkdir(parents=True, exist_ok=True)
-                clean_name = Path(path).name
+                clean_name = Path(path).stem + '.json'
                 saved = dest / clean_name
                 if os.path.normcase(os.path.abspath(path)) != os.path.normcase(os.path.abspath(saved)):
                     with open(saved, 'w', encoding='utf-8') as handle:

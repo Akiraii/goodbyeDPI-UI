@@ -8,7 +8,7 @@ import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from zapret2_component import (
-    REQUIRED_FILES, install_zapret2_archive,
+    REQUIRED_FILES, convert_zapret2_batch, install_zapret2_archive,
     parse_zapret2_arguments, validate_zapret2_files,
 )
 
@@ -27,6 +27,19 @@ class Zapret2Tests(unittest.TestCase):
     def test_parser_quoted_lua(self):
         args = parse_zapret2_arguments('--wf-tcp-out=80,443 --lua-init="foo = 123"')
         self.assertEqual(args, ["--wf-tcp-out=80,443", "--lua-init=foo = 123"])
+
+    def test_import_official_cmd_lines(self):
+        script = (
+            'start "zapret2" /min "%~dp0winws2.exe" ^\n'
+            '--wf-tcp-out=80,443 ^\n'
+            '--lua-init=@"%~dp0lua\\zapret-lib.lua" ^\n'
+            '--lua-init="fake_default_tls = tls_mod(fake_default_tls,\x27rnd\x27)"'
+        )
+        encoded = convert_zapret2_batch(script)
+        args = parse_zapret2_arguments(encoded)
+        self.assertEqual(args[0], '--wf-tcp-out=80,443')
+        self.assertEqual(args[1], '--lua-init=@lua/zapret-lib.lua')
+        self.assertIn('fake_default_tls =', args[2])
 
     def test_rejects_shell_tokens(self):
         with self.assertRaises(ValueError):

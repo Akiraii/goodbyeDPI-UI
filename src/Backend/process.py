@@ -454,10 +454,28 @@ class Process(QObject):
             self.handle_error('Component not installed correctly.')
             return False
         if self.engine == 'zapret2':
+            import ctypes
+            import psutil
             binary_dir = os.path.join(DIRECTORY, 'data', 'zapret2')
             if not validate_zapret2_files(binary_dir):
                 self.handle_error('Zapret2 files missing: reinstall the component.')
                 return False
+            try:
+                is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
+            except (AttributeError, OSError):
+                is_admin = False
+            if not is_admin:
+                self.handle_error('Zapret2 requires administrator privileges.')
+                return False
+            try:
+                for other in psutil.process_iter(['name']):
+                    if (other.info.get('name') or '').lower() in ('winws.exe', 'winws2.exe'):
+                        self.handle_error(
+                            'Another winws/winws2 process is running. Stop it first.'
+                        )
+                        return False
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                pass
 
         self.output = ""
         is_can_start = True

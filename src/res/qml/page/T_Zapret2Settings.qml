@@ -54,8 +54,8 @@ Page {
 
     FileDialog {
         id: importDialog
-        title: tr2("Импорт стратегии Zapret2 (JSON)", "Import Zapret2 strategy (JSON)")
-        nameFilters: ["JSON (*.json)"]
+        title: tr2("Импорт стратегии Zapret2 (JSON или CMD)", "Import Zapret2 strategy (JSON or CMD)")
+        nameFilters: ["Zapret2 strategy (*.json *.cmd *.bat)"]
         fileMode: FileDialog.OpenFile
         onAccepted: {
             var path = selectedFile.toString().replace("file:///", "")
@@ -64,7 +64,7 @@ Page {
                 process.update_preset()
                 actionMessage = tr2("Стратегия импортирована.", "Strategy imported.")
             } else {
-                actionMessage = tr2("Некорректный JSON или параметры.", "Invalid JSON or parameters.")
+                actionMessage = tr2("Неверный файл или неподдерживаемый синтаксис.", "Invalid file or unsupported syntax.")
             }
         }
     }
@@ -190,7 +190,7 @@ Page {
                     onClicked: page.saveStrategy()
                 }
                 Button {
-                    text: tr2("Импорт JSON", "Import JSON")
+                    text: tr2("Импорт JSON/CMD", "Import JSON/CMD")
                     onClicked: importDialog.open()
                 }
                 Button {
